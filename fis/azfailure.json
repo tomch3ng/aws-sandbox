@@ -1,0 +1,189 @@
+{
+    "description": "Affect multiple resource types in a single AZ, targeting by tags and explicit ARNs, to approximate power interruption in one AZ.",
+    "targets": {
+        "ASG": {
+            "resourceType": "aws:ec2:autoscaling-group",
+            "resourceTags": {
+                "APPLICATION": "%applicationName%",
+                "ENVIRONMENT": "%environmentName%"
+            },
+            "selectionMode": "ALL"
+        },
+        "ASG-EC2-Instances": {
+            "resourceType": "aws:ec2:instance",
+            "resourceTags": {
+                "APPLICATION": "%applicationName%",
+                "ENVIRONMENT": "%environmentName%"
+            },
+            "filters": [
+                {
+                        "path": "State.Name",
+                        "values": [
+                                "running"
+                        ]
+                },
+                {
+                        "path": "Placement.AvailabilityZone",
+                        "values": [
+                                "%availabilityZone%"
+                        ]
+                }
+            ],
+            "selectionMode": "ALL"
+        },
+        "EBS-Volumes": {
+                "resourceType": "aws:ec2:ebs-volume",
+                "resourceTags": {
+                        "AzImpairmentPower": "ApiPauseVolume"
+                },
+                "filters": [
+                        {
+                                "path": "Attachments.DeleteOnTermination",
+                                "values": [
+                                        "false"
+                                ]
+                        }
+                ],
+                "selectionMode": "COUNT(1)",
+                "parameters": {
+                        "availabilityZoneIdentifier": "%availabilityZone%"
+                }
+        },
+        "EC2-Instances": {
+            "resourceType": "aws:ec2:instance",
+            "resourceTags": {
+                "APPLICATION": "%applicationName%",
+                "ENVIRONMENT": "%environmentName%"
+            },
+            "filters": [
+                {
+                        "path": "State.Name",
+                        "values": [
+                                "running"
+                        ]
+                },
+                {
+                        "path": "Placement.AvailabilityZone",
+                        "values": [
+                                "%availabilityZone"
+                        ]
+                }
+            ],
+            "selectionMode": "ALL"
+        },
+        "ElastiCache-Cluster": {
+                "resourceType": "aws:elasticache:redis-replicationgroup",
+                "resourceTags": {
+                    "APPLICATION": "%applicationName%",
+                    "ENVIRONMENT": "%environmentName%"
+                },
+                "parameters": {
+                    "availabilityZoneIdentifier": "%availabilityZone%"
+                },    
+                "selectionMode": "ALL"
+        },
+        "RDS-Cluster": {
+            "resourceType": "aws:rds:cluster",
+            "resourceTags": {
+                "APPLICATION": "%applicationName%",
+                "ENVIRONMENT": "%environmentName%"
+            },
+            "selectionMode": "ALL",
+            "parameters": {
+                    "writerAvailabilityZoneIdentifiers": "%availabilityZone%"
+            }
+        }
+},
+"actions": {
+        "Failover-RDS": {
+                "actionId": "aws:rds:failover-db-cluster",
+                "parameters": {},
+                "targets": {
+                        "Clusters": "RDS-Cluster"
+                }
+        },
+        "Pause-ASG-Scaling": {
+                "actionId": "aws:ec2:asg-insufficient-instance-capacity-error",
+                "parameters": {
+                        "availabilityZoneIdentifiers": "%availabilityZone%",
+                        "duration": "PT30M",
+                        "percentage": "100"
+                },
+                "targets": {
+                        "AutoScalingGroups": "ASG"
+                }
+        },
+        "Pause-EBS-IO": {
+                "actionId": "aws:ebs:pause-volume-io",
+                "parameters": {
+                        "duration": "PT30M"
+                },
+                "targets": {
+                        "Volumes": "EBS-Volumes"
+                },
+                "startAfter": [
+                        "Stop-Instances",
+                        "Stop-ASG-Instances"
+                ]
+        },
+        "Pause-ElastiCache": {
+                "actionId": "aws:elasticache:interrupt-cluster-az-power",
+                "parameters": {
+                        "duration": "PT30M"
+                },
+                "targets": {
+                        "ReplicationGroups": "ElastiCache-Cluster"
+                }
+        },
+        "Pause-Instance-Launches": {
+                "actionId": "aws:ec2:api-insufficient-instance-capacity-error",
+                "parameters": {
+                        "availabilityZoneIdentifiers": "%availabilityZone%",
+                        "duration": "PT30M",
+                        "percentage": "100"
+                },
+                "targets": {
+                        "Roles": "IAM-role"
+                }
+        },
+        "Stop-ASG-Instances": {
+                "actionId": "aws:ec2:stop-instances",
+                "parameters": {
+                        "completeIfInstancesTerminated": "true",
+                        "startInstancesAfterDuration": "PT30M"
+                },
+                "targets": {
+                        "Instances": "ASG-EC2-Instances"
+                }
+        },
+        "Stop-Instances": {
+                "actionId": "aws:ec2:stop-instances",
+                "parameters": {
+                        "completeIfInstancesTerminated": "true",
+                        "startInstancesAfterDuration": "PT30M"
+                },
+                "targets": {
+                        "Instances": "EC2-Instances"
+                }
+        }
+    },
+    "stopConditions": [
+            {
+                "source": "none"
+            }
+    ],
+    "roleArn": "arn:aws:iam::281203279066:role/svc_cloudeng_aws_fis",
+    "tags": {
+            "Name": "AZ Availability: Power Interruption"
+    },
+    "logConfiguration": {
+        "cloudWatchLogsConfiguration": {
+                "logGroupArn": "arn:aws:logs:us-east-2:281203279066:log-group:FIS_Experiment_logs:*"
+        },
+        "logSchemaVersion": 2
+    },
+    "experimentOptions": {
+            "accountTargeting": "single-account",
+            "emptyTargetResolutionMode": "skip"
+    }
+}
