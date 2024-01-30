@@ -1,41 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: High-availability two tier web app (EC2 web cluster + RDS DB)
+Description: MySQL DB instance with multi-AZ option
 
 Parameters:
-  InstanceType:
-    Description: The EC2 instance type
-    Type: String
-    Default: t2.micro
-  LatestAmiId:
-    Description: The latest Amazon Linux 2 AMI from the Parameter Store
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-ebs
-  OperatorEmail:
-    Description: The email address to notify when there are any scaling activities
-    Type: String
-  SSHLocation:
-    Description: The IP address range that can be used to SSH to the EC2 instances
-    Type: String
-    MinLength: 9
-    MaxLength: 18
-    Default: 0.0.0.0/0
-    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
-  Subnets:
-    Type: 'List<AWS::EC2::Subnet::Id>'
-    Description: At least two public subnets in different Availability Zones in the selected VPC
-  VPC:
-    Type: 'AWS::EC2::VPC::Id'
-    Description: A virtual private cloud that enables resources in the public subnets to connect to the Internet
-  DBInstanceID:
-    Default: rdsdb
-    Description: RDS DB instance
-    Type: String
-    MinLength: '1'
-    MaxLength: '63'
-    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
-    ConstraintDescription: >-
-      Must begin with a letter and must not end with a hyphen or contain two
-      consecutive hyphens.
   DatabaseName:
     Default: mydb
     Description: Database name
@@ -60,154 +26,57 @@ Parameters:
     MaxLength: '41'
     AllowedPattern: '[a-zA-Z0-9]*'
     ConstraintDescription: Must contain only alphanumeric characters and be at least 8 characters long.
+  MultiAZ:
+    Description: Enable multi-AZ (true/false)
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    ConstraintDescription: Must be "true" or "false"
+  VPC:
+    Type: 'AWS::EC2::VPC::Id'
+    Description: A virtual private cloud that enables resources in the public subnets to connect to the Internet
+  Subnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: At least two public subnets in different Availability Zones in the selected VPC
+  IngressGroupName:
+    Type: String
+    Description: Name of security group whose members can have access to the RDS instance.
+  Application:
+    Description: Name of application
+    Type: String
+    MinLength: '1'
+    MaxLength: '20'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters (no spaces).  
+  Environment:
+    Description: Application Environment
+    Type: String
+    AllowedValues: ["prd", "stg", "tst", "dev"]
+    ConstraintDescription: 'Must be one of: "prd", "stg", "tst", "dev"'
 
 Resources:
-  ELBSecurityGroup: 
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: ELB SecurityGroup
-      Tags:
-        - Key: Name 
-          Value: sg-DBApDBAppELBpEC2
-      VpcId: !Ref VPC 
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
-  EC2SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: EC2 Security Group
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name 
-          Value: sg-DBAppEC2
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        SourceSecurityGroupId:
-          Fn::GetAtt:
-          - ELBSecurityGroup
-          - GroupId 
-      - IpProtocol: tcp 
-        FromPort: 22
-        ToPort: 22
-        CidrIp: !Ref SSHLocation 
-  EC2TargetGroup: 
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      HealthCheckIntervalSeconds: 30
-      HealthCheckProtocol: HTTP 
-      HealthCheckTimeoutSeconds: 15
-      HealthyThresholdCount: 5
-      Matcher:
-        HttpCode: '200'
-      Name: tg-DBApp
-      Port: 80
-      Protocol: HTTP
-      TargetGroupAttributes:
-      - Key: deregistration_delay.timeout_seconds
-        Value: '20' 
-      UnhealthyThresholdCount: 3
-      VpcId: !Ref VPC 
-  ALBListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref EC2TargetGroup
-      LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 80
-      Protocol: HTTP 
-  ApplicationLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties: 
-      Scheme: internet-facing
-      Subnets: !Ref Subnets 
-      SecurityGroups:
-        - !GetAtt ELBSecurityGroup.GroupId
-  LaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub ${AWS::StackName}-launch-template
-      LaunchTemplateData:
-        ImageId: !Ref LatestAmiId
-        InstanceType: !Ref InstanceType 
-        KeyName: aws-sandbox
-        SecurityGroupIds:
-          - !Ref EC2SecurityGroup 
-        UserData: 
-          Fn::Base64: !Sub
-            - |
-              #!/bin/bash
-              yum -y install httpd php mysql php-mysql
-
-              case $(ps -p 1 -o comm | tail -1) in
-              systemd) systemctl enable --now httpd ;;
-              init) chkconfig httpd on; service httpd start ;;
-              *) echo "Error starting httpd (OS not using init or systemd)." 2>&1
-              esac
-
-              if [ ! -f /var/www/html/bootcamp-app.tar.gz ]; then
-              cd /var/www/html
-              wget https://s3.amazonaws.com/immersionday-labs/bootcamp-app.tar
-              tar xvf bootcamp-app.tar
-              chown apache:root /var/www/html/rds.conf.php
-              curl 'http://localhost/rds-write-config.php' --data-raw ${rds_conf}
-              fi
-              yum -y update
-            - rds_conf: !Sub 'endpoint=${RDSCluster.Endpoint.Address}&database=${DatabaseName}&username=${MasterUsername}&password=${MasterPassword}'
-  NotificationTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      Subscription:
-        - Endpoint: !Ref OperatorEmail
-          Protocol: email 
-  WebServerGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      LaunchTemplate:
-        LaunchTemplateId: !Ref LaunchTemplate
-        Version: !GetAtt LaunchTemplate.LatestVersionNumber 
-      MaxSize: '6'
-      MinSize: '2'
-      NotificationConfigurations:
-        - TopicARN: !Ref NotificationTopic
-          NotificationTypes: ['autoscaling:EC2_INSTANCE_LAUNCH', 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR', 'autoscaling:EC2_INSTANCE_TERMINATE', 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR']
-      TargetGroupARNs: 
-        - !Ref EC2TargetGroup
-      VPCZoneIdentifier: !Ref Subnets
-      Tags:
-        - Key: APPLICATION
-          Value: 'dbapp'
-          PropagateAtLaunch: true
-        - Key: ENVIRONMENT
-          Value: 'prd'
-          PropagateAtLaunch: true
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow connections only from Webservers
       Tags:
         - Key: Name
-          Value: "sg-DBAppRDS"
+          Value: !Sub "rdssg-${Application}-${Environment}"
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 3306
         ToPort: 3306 
-        SourceSecurityGroupId: !GetAtt EC2SecurityGroup.GroupId
+        SourceSecurityGroupName: !Ref IngressGroupName
   RDSCluster:
     Type: AWS::RDS::DBInstance
     Properties: 
-      DBInstanceIdentifier: !Ref DBInstanceID
+      DBInstanceIdentifier: !Sub ${Application}-${Environment}
       DBName: !Ref DatabaseName
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
       Engine: MySQL
       EngineVersion: 8.0.35
-      MultiAZ: true 
+      MultiAZ: !Ref MultiAZ 
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterPassword
       DBParameterGroupName: !Ref RDSParameterGroup
@@ -216,9 +85,9 @@ Resources:
         - Fn::GetAtt: [ RDSSecurityGroup, GroupId ]
       Tags:
         - Key: APPLICATION
-          Value: 'dbapp'
+          Value: !Ref Application
         - Key: ENVIRONMENT
-          Value: 'prd'
+          Value: !Ref Environment
   RDSParameterGroup:
     Type: AWS::RDS::DBParameterGroup
     Properties:
@@ -231,20 +100,14 @@ Resources:
         character_set_server: utf8
       Tags:
         - Key: Name
-          Value: 'pg-DBAppRDS'
+          Value: !Sub 'rdspg-${Application}-${Environment}'
   RDSSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: Subnet group for MySQL RDS Instance
-      DBSubnetGroupName: sng-DBAppRDS
-      SubnetIds: 
-        - subnet-059c4b4685c4df5c2
-        - subnet-05aff0c85f391ad50
-        - subnet-08c03c35989cac7ed
+      DBSubnetGroupName: !Sub rdssng-${Application}
+      SubnetIds: !Ref Subnets 
 Outputs: 
-  WebsiteURL:
-    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/'
-    Description: Webserver URL
   RDSEndpoint:
     Value: !GetAtt RDSCluster.Endpoint.Address
     Description: RDS DB instance endpoint
