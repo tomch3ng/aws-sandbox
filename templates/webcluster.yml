@@ -151,7 +151,7 @@ Resources:
               curl 'http://localhost/rds-write-config.php' --data-raw ${rds_conf}
               fi
               yum -y update
-            - rds_conf: !Sub 'endpoint=${DatabaseURL}&database=${DatabaseName}&username=${MasterUsername}&password=${MasterPassword}'
+            - rds_conf: !Sub "'endpoint=${DatabaseURL}&database=${DatabaseName}&username=${MasterUsername}&password=${MasterPassword}'"
   WebServerGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
