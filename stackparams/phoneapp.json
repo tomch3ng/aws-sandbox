@@ -21,7 +21,7 @@
     },
     {
         "ParameterKey": "Subnets",
-        "ParameterValue": "subnet-05aff0c85f391ad50,subnet-08c03c35989cac7ed"
+        "ParameterValue": "subnet-05aff0c85f391ad50,subnet-08c03c35989cac7ed,subnet-059c4b4685c4df5c2"
     },
     {
         "ParameterKey": "IngressGroupName",
