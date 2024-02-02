@@ -1,0 +1,42 @@
+[
+   {
+        "ParameterKey": "DatabaseName",
+        "ParameterValue": "phoneapp"
+    },
+    {
+        "ParameterKey": "MasterUsername",
+        "ParameterValue": "dbapp"
+    },
+    {
+        "ParameterKey": "MasterPassword",
+        "ParameterValue": "dbapp123"
+    },
+    {
+        "ParameterKey": "MultiAZ",
+        "ParameterValue": "true"
+    },
+    {
+        "ParameterKey": "VPC",
+        "ParameterValue": "vpc-0df50b8add50c0b59"
+    },
+    {
+        "ParameterKey": "Subnets",
+        "ParameterValue": "subnet-070a9167ac30efe93,subnet-06a14a0e0b120e50c"
+    },
+    {
+        "ParameterKey": "IngressGroupID",
+        "ParameterValue": "sg-0fe6a43a2bad72694"
+    },
+    {
+        "ParameterKey": "Application",
+        "ParameterValue": "phoneapp"
+    },
+    {
+        "ParameterKey": "Environment",
+        "ParameterValue": "prd"
+    },
+    {
+        "ParameterKey": "DatabaseURL",
+        "ParameterValue": "phoneapp-prd.c60qxklfsna3.us-east-1.rds.amazonaws.com"
+    }
+]

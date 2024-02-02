@@ -1,36 +1,111 @@
 AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  VPCName:
+    Description: VPCName
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+  VPCCIDR:
+    Description: Enter the IP range (CIDR notation) for the VPC
+    Type: String
+  PublicSubnet1CIDR:
+    Description: Enter the IP range (CIDR notation) for the public subnet in AZ A
+    Type: String
+  PublicSubnet2CIDR:
+    Description: Enter the IP range (CIDR notation) for the public subnet in AZ B
+    Type: String
+  PrivateSubnet1CIDR:
+    Description: Enter the IP range (CIDR notation) for the private subnet in AZ A
+    Type: String
+  PrivateSubnet2CIDR:
+    Description: Enter the IP range (CIDR notation) for the private subnet in AZ B
+    Type: String
 Resources:
-  SandboxInternetGateway:
-    Type: 'AWS::EC2::InternetGateway'
-    Properties: {}
-  SandboxVPC:
+  VPC:
     Type: 'AWS::EC2::VPC'
     Properties:
       EnableDnsSupport: 'true'
       EnableDnsHostnames: 'true'
-      CidrBlock: 10.30.0.0/16
-  SandboxPublicRouteTable:
+      CidrBlock: !Ref VPCCIDR
+      Tags:
+        - Key: Name
+          Value: !Sub vpc-${VPCName}
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties: 
+      Tags:
+        - Key: Name
+          Value: !Sub igw-${VPCName}
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  PublicRouteTable:
     Type: 'AWS::EC2::RouteTable'
     Properties: 
-      VpcId: !Ref SandboxVPC
-  SandboxPublicRoute:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name 
+          Value: !Sub rt-pub-${VPCName}
+  PublicRoute:
     Type: 'AWS::EC2::Route'
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref SandboxPublicRouteTable
-      GatewayId: !Ref SandboxInternetGateway
+      RouteTableId: !Ref PublicRouteTable
+      GatewayId: !Ref InternetGateway
     DependsOn:
-      - SandboxInternetGateway
-      - SandboxVPCGatewayAttachment
-  SandboxVPCGatewayAttachment:
-    Type: 'AWS::EC2::VPCGatewayAttachment'
+      - InternetGateway
+      - VPCGatewayAttachment
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
     Properties:
-      InternetGatewayId: !Ref SandboxInternetGateway
-      VpcId: !Ref SandboxVPC
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ] # AZ 1
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub subnet-public1-${VPCName}
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ] # AZ 2
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub subnet-public2-${VPCName}
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
 Outputs:
   VpcId:
     Description: "VPC ID"
-    Value: !Ref SandboxVPC
+    Value: !Ref VPC
   RouteTableId:
     Description: "Route Table ID"
-    Value: !Ref SandboxPublicRouteTable
+    Value: !Ref PublicRouteTable
+  PublicSubnet1Id:
+    Description: "Public Subnet 1 ID"
+    Value: !Ref PublicSubnet1
+  PublicSubnet2Id:
+    Description: "Public Subnet 2 ID"
+    Value: !Ref PublicSubnet2
+  # PrivateSubnet1Id:
+  #   Description: "Private Subnet 1 ID"
+  #   Value: !Ref PublicRouteTable
+  # PrivateSubnet2Id:
+  #   Description: "Private Subnet 2 ID"
+  #   Value: !Ref PublicRouteTable
+  

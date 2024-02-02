@@ -175,3 +175,6 @@ Outputs:
   WebsiteURL:
     Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/'
     Description: Webserver URL
+  EC2SecurityGroup:
+    Value: !Ref EC2SecurityGroup
+    Description: EC2 Security Group ID

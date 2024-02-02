@@ -38,7 +38,7 @@ Parameters:
   Subnets:
     Type: 'List<AWS::EC2::Subnet::Id>'
     Description: At least two public subnets in different Availability Zones in the selected VPC
-  IngressGroupName:
+  IngressGroupID:
     Type: String
     Description: Name of security group whose members can have access to the RDS instance.
   Application:
@@ -66,7 +66,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: 3306
         ToPort: 3306 
-        SourceSecurityGroupName: !Ref IngressGroupName
+        SourceSecurityGroupId: !Ref IngressGroupID
   RDSCluster:
     Type: AWS::RDS::DBInstance
     Properties: 
