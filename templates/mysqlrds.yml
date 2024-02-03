@@ -74,7 +74,7 @@ Resources:
       DBInstanceIdentifier: !Sub ${Application}-${Environment}
       DBName: !Ref DatabaseName
       DBInstanceClass: db.t3.micro
-      AllocatedStorage: 20
+      AllocatedStorage: 10
       Engine: MySQL
       EngineVersion: 8.0.35
       MultiAZ: !Ref MultiAZ 

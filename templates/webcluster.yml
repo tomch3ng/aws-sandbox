@@ -170,6 +170,7 @@ Resources:
         - Key: ENVIRONMENT
           Value: !Ref Environment
           PropagateAtLaunch: true
+  ### To Do: Add Cloudwatch alarms for high ELB error rate, response times
 
 Outputs: 
   WebsiteURL:
