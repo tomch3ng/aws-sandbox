@@ -35,7 +35,7 @@ Parameters:
   VPC:
     Type: 'AWS::EC2::VPC::Id'
     Description: A virtual private cloud that enables resources in the public subnets to connect to the Internet
-  Subnets:
+  PrivateSubnets:
     Type: 'List<AWS::EC2::Subnet::Id>'
     Description: At least two public subnets in different Availability Zones in the selected VPC
   IngressGroupID:
@@ -59,6 +59,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow connections only from Webservers
+      VpcId: !Ref VPC
       Tags:
         - Key: Name
           Value: !Sub "rdssg-${Application}-${Environment}"
@@ -106,7 +107,7 @@ Resources:
     Properties:
       DBSubnetGroupDescription: Subnet group for MySQL RDS Instance
       DBSubnetGroupName: !Sub rdssng-${Application}
-      SubnetIds: !Ref Subnets 
+      SubnetIds: !Ref PrivateSubnets 
 Outputs: 
   RDSEndpoint:
     Value: !GetAtt RDSCluster.Endpoint.Address
