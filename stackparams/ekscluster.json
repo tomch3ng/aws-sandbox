@@ -1,0 +1,26 @@
+[
+    {
+        "ParameterKey": "ClusterName",
+        "ParameterValue": "sandbox"
+    },
+    {
+        "ParameterKey": "KeyName",
+        "ParameterValue": "aws-sandbox"
+    },
+    {
+        "ParameterKey": "NodeGroupName",
+        "ParameterValue": "sandbox-nodegroup"
+    },
+    {
+        "ParameterKey": "VPC",
+        "ParameterValue": "vpc-0ac45e20bc0c10fa3"
+    },
+    {
+        "ParameterKey": "Subnets",
+        "ParameterValue": "subnet-0b5e89f76b95ee524,subnet-0ed2fdfe2e253fa31"
+    },
+    {
+        "ParameterKey": "ClusterControlPlaneSecurityGroup",
+        "ParameterValue": "sg-058e39fb71941bfdd"
+    }
+]
