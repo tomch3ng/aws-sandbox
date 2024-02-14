@@ -10,6 +10,12 @@ Parameters:
     MaxLength: '64'
     AllowedPattern: '[a-zA-Z][a-zA-Z0-9\-\_]*'
     ConstraintDescription: Must begin with a letter and contain only alphanumeric characters, hypnens, and underscores.
+  Environment:
+    Description: Application Environment
+    Default: prd
+    Type: String
+    AllowedValues: ["prd", "stg", "tst", "dev"]
+    ConstraintDescription: 'Must be one of: "prd", "stg", "tst", "dev"'
   VPC:
     Type: 'AWS::EC2::VPC::Id'
     Description: A virtual private cloud that enables resources in the public subnets to connect to the Internet
@@ -87,15 +93,18 @@ Resources:
   EKSNodegroup:
     Type: 'AWS::EKS::Nodegroup'
     Properties:
-      ClusterName: !Ref ClusterName
-      NodeRole: !Ref NodeInstanceRole
+      ClusterName: !Ref EKSCluster
+      NodeRole: !GetAtt NodeInstanceRole.Arn
       InstanceTypes: [ !Ref NodeInstanceType ]
       ScalingConfig:
         MinSize: 1
         DesiredSize: 2
         MaxSize: 4
       Subnets: !Ref Subnets
-  
+      Tags:
+        APPLICATION: !Ref ClusterName
+        ENVIRONMENT: !Ref Environment
+
 Outputs:
   ClusterControlPlaneSecurityGroup:
     Value: !Ref ControlPlaneSecurityGroup
