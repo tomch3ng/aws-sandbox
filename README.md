@@ -1,3 +1,6 @@
+**This code has been moved to https://github.com/tomch3ng/devops-sandbox/aws**
+---
+
 # aws-sandbox
 Templates and scripts for experimenting with AWS features.
 
